@@ -1,11 +1,14 @@
 use std::{
-    collections::{HashMap, HashSet}, fs::File, io::{prelude::*, BufReader}
+    collections::{HashMap, HashSet},
+    fs::File,
+    io::{prelude::*, BufReader},
 };
 
 fn read_input() -> (Vec<String>, Vec<String>) {
     let file = File::open("input.txt").expect("no such file");
     let buf = BufReader::new(file);
-    let original_buffer: Vec<String> = buf.lines()
+    let original_buffer: Vec<String> = buf
+        .lines()
         .map(|l| l.expect("Could not parse line"))
         .collect();
     let mut ordering_rules: Vec<String> = vec![];
@@ -13,43 +16,45 @@ fn read_input() -> (Vec<String>, Vec<String>) {
     for line in original_buffer {
         if line.contains("|") {
             ordering_rules.push(line);
-        } else if line.contains(","){
+        } else if line.contains(",") {
             update_order.push(line);
         }
     }
     return (ordering_rules, update_order);
 }
 
-fn build_order_map(ordering_rules: Vec<String>) -> HashMap<u32, Vec<u32>>  {
-    let mut order_map:HashMap<u32, Vec<u32>> = HashMap::new();
+fn build_order_map(ordering_rules: Vec<String>) -> HashMap<u32, Vec<u32>> {
+    let mut order_map: HashMap<u32, Vec<u32>> = HashMap::new();
     for line in ordering_rules {
         let mut iter = line.split("|");
         let page_before: u32 = iter.next().unwrap().parse().unwrap();
         let page_after: u32 = iter.next().unwrap().parse().unwrap();
-        order_map.entry(page_before)
+        order_map
+            .entry(page_before)
             .or_insert_with(Vec::new)
             .push(page_after);
     }
     order_map
 }
 
-fn solution_one(update_order: Vec<String>, order_map: HashMap<u32, Vec<u32>>) -> u32 {
+fn solution_one(update_order: &Vec<String>, order_map: &HashMap<u32, Vec<u32>>) -> u32 {
     let mut solution = 0;
     for line in update_order {
         let update = line.split(",");
         let length = update.clone().count();
-        let mut numbers_so_far :Vec<u32> = vec![];
+        let mut numbers_so_far: Vec<u32> = vec![];
         let mut middle = 0u32;
         'outer: for (index, v) in update.enumerate() {
-
             let digit: u32 = v.parse().unwrap();
             if index == (length / 2) {
                 middle = digit;
             }
-            
+
             let numbers_that_cannot_be_before = order_map.get(&digit);
             match numbers_that_cannot_be_before {
-                None => {numbers_so_far.push(digit);},
+                None => {
+                    numbers_so_far.push(digit);
+                }
                 Some(n_before) => {
                     let s1: HashSet<_> = numbers_so_far.iter().copied().collect();
                     let s2: HashSet<_> = n_before.iter().copied().collect();
@@ -69,8 +74,54 @@ fn solution_one(update_order: Vec<String>, order_map: HashMap<u32, Vec<u32>>) ->
     solution
 }
 
+fn solution_two(update_order: &Vec<String>, order_map: &HashMap<u32, Vec<u32>>) -> u32 {
+    let mut solution = 0;
+    for line in update_order {
+        let update = line.split(",");
+        let mut numbers_so_far: Vec<u32> = vec![];
+        let mut update_cloned: Vec<u32> = update.clone().map(|v| v.parse().unwrap()).collect();
+        'outer: for v in update {
+            let digit: u32 = v.parse().unwrap();
+
+            let numbers_that_cannot_be_before = order_map.get(&digit);
+            match numbers_that_cannot_be_before {
+                None => {
+                    numbers_so_far.push(digit);
+                }
+                Some(n_before) => {
+                    let s1: HashSet<_> = numbers_so_far.iter().copied().collect();
+                    let s2: HashSet<_> = n_before.iter().copied().collect();
+                    let diff = s1.intersection(&s2).count();
+                    if diff > 0 {
+                        update_cloned.sort_by(|a, b| {
+                            let values_before_b = order_map.get(b);
+                            match values_before_b {
+                                None => return std::cmp::Ordering::Equal,
+                                Some(before_b) => {
+                                    if before_b.contains(a) {
+                                        return std::cmp::Ordering::Less;
+                                    } else {
+                                        return std::cmp::Ordering::Equal;
+                                    }
+                                }
+                            }
+                        });
+                        let middle_index = update_cloned.len() / 2;
+                        solution += update_cloned[middle_index];
+
+                        break 'outer;
+                    }
+                    numbers_so_far.push(digit);
+                }
+            }
+        }
+    }
+    solution
+}
+
 fn main() {
     let (ordering_rules_raw, update_order) = read_input();
-    let order_map= build_order_map(ordering_rules_raw);
-    println!("Solution One: {}", solution_one(update_order, order_map));
+    let order_map = build_order_map(ordering_rules_raw);
+    println!("Solution One: {}", solution_one(&update_order, &order_map));
+    println!("Solution Two: {}", solution_two(&update_order, &order_map));
 }
